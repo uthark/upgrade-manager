@@ -6,7 +6,9 @@ import (
 )
 
 type NodeSelector interface {
-	SelectNodesForRestack(state ClusterState) []*autoscaling.Instance
+	// SelectNodesForRestack returns slice of size up to limit with instances to be replaced.
+	// can return empty slice if there are no nodes to replace.
+	SelectNodesForRestack(state ClusterState, limit int) []*autoscaling.Instance
 }
 
 func getNodeSelector(asg *autoscaling.Group, ruObj *upgrademgrv1alpha1.RollingUpgrade) NodeSelector {
@@ -14,6 +16,6 @@ func getNodeSelector(asg *autoscaling.Group, ruObj *upgrademgrv1alpha1.RollingUp
 	case upgrademgrv1alpha1.UniformAcrossAzUpdateStrategy:
 		return NewUniformAcrossAzNodeSelector(asg, ruObj)
 	default:
-		return NewRandomNodeSelector(asg, ruObj)
+		return NewRandomNodeSelector(asg)
 	}
 }

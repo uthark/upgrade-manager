@@ -13,7 +13,6 @@ type azNodesCountState struct {
 
 type UniformAcrossAzNodeSelector struct {
 	azNodeCounts map[string]*azNodesCountState
-	ruObj        *upgrademgrv1alpha1.RollingUpgrade
 	asg          *autoscaling.Group
 }
 
@@ -37,21 +36,24 @@ func NewUniformAcrossAzNodeSelector(asg *autoscaling.Group, ruObj *upgrademgrv1a
 
 	return &UniformAcrossAzNodeSelector{
 		azNodeCounts: azNodeCounts,
-		ruObj:        ruObj,
 		asg:          asg,
 	}
 }
 
-func (selector *UniformAcrossAzNodeSelector) SelectNodesForRestack(state ClusterState) []*autoscaling.Instance {
+func (s *UniformAcrossAzNodeSelector) SelectNodesForRestack(state ClusterState, limit int) []*autoscaling.Instance {
 	var instances []*autoscaling.Instance
 
 	// Fetch instances to update from each instance group
-	for az, processedState := range selector.azNodeCounts {
+	for az, processedState := range s.azNodeCounts {
 		// Collect the needed number of instances to update
-		instancesForUpdate := getNextSetOfAvailableInstancesInAz(selector.ruObj.Spec.AsgName,
-			az, processedState.MaxUnavailableNodes, selector.asg.Instances, state)
+		want := limit
+		if want < 0 {
+			want = processedState.MaxUnavailableNodes
+		}
+		instancesForUpdate := getNextSetOfAvailableInstancesInAz(*s.asg.AutoScalingGroupName,
+			az, processedState.MaxUnavailableNodes, s.asg.Instances, state, want)
 		if instancesForUpdate == nil {
-			log.Printf("No instances available for update in AZ: %s for %s", az, selector.ruObj.Name)
+			log.Printf("No instances available for update in AZ: %s for ASG %s", az, *s.asg.AutoScalingGroupName)
 		} else {
 			instances = append(instances, instancesForUpdate...)
 		}

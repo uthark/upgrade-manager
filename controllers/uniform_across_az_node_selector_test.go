@@ -43,9 +43,9 @@ func TestUniformAcrossAzNodeSelectorSelectNodes(t *testing.T) {
 	clusterState.initializeAsg(*mockAsg.AutoScalingGroupName, mockAsg.Instances)
 
 	nodeSelector := NewUniformAcrossAzNodeSelector(&mockAsg, ruObj)
-	instances := nodeSelector.SelectNodesForRestack(clusterState)
+	instances := nodeSelector.SelectNodesForRestack(clusterState, -1)
 
-	g.Expect(2).To(gomega.Equal(len(instances)))
+	g.Expect(len(instances)).To(gomega.Equal(2))
 
 	// group instances by AZ
 	instancesByAz := make(map[string][]*autoscaling.Instance)
@@ -59,8 +59,8 @@ func TestUniformAcrossAzNodeSelectorSelectNodes(t *testing.T) {
 	}
 
 	// assert on number of instances in each az
-	g.Expect(1).To(gomega.Equal(len(instancesByAz[az])))
-	g.Expect(1).To(gomega.Equal(len(instancesByAz[az2])))
+	g.Expect(len(instancesByAz[az])).To(gomega.Equal(1))
+	g.Expect(len(instancesByAz[az2])).To(gomega.Equal(1))
 }
 
 func TestUniformAcrossAzNodeSelectorSelectNodesOneAzComplete(t *testing.T) {
@@ -102,8 +102,8 @@ func TestUniformAcrossAzNodeSelectorSelectNodesOneAzComplete(t *testing.T) {
 	clusterState.markUpdateCompleted(mockID + "1-" + az2)
 
 	nodeSelector := NewUniformAcrossAzNodeSelector(&mockAsg, ruObj)
-	instances := nodeSelector.SelectNodesForRestack(clusterState)
+	instances := nodeSelector.SelectNodesForRestack(clusterState, -1)
 
-	g.Expect(1).To(gomega.Equal(len(instances)))
-	g.Expect(&az2).To(gomega.Equal(instances[0].AvailabilityZone))
+	g.Expect(len(instances)).To(gomega.Equal(1))
+	g.Expect(instances[0].AvailabilityZone).To(gomega.Equal(&az2))
 }

@@ -151,21 +151,21 @@ func getNextAvailableInstances(
 	numberOfInstances int,
 	instances []*autoscaling.Instance,
 	state ClusterState) []*autoscaling.Instance {
-	return getNextSetOfAvailableInstancesInAz(asgName, "", numberOfInstances, instances, state)
+	return getNextSetOfAvailableInstancesInAz(asgName, "", numberOfInstances, instances, state, numberOfInstances)
 }
 
 // getNextSetOfAvailableInstancesInAz checks the cluster state store for the instance state
 // and returns the next set of instances available for update in the given AX
-func getNextSetOfAvailableInstancesInAz(
-	asgName string,
-	azName string,
-	numberOfInstances int,
-	instances []*autoscaling.Instance,
-	state ClusterState,
-) []*autoscaling.Instance {
+func getNextSetOfAvailableInstancesInAz(asgName string, azName string, maxUnavailable int, instances []*autoscaling.Instance, state ClusterState, want int) []*autoscaling.Instance {
 
 	var instancesForUpdate []*autoscaling.Instance
-	for instancesFound := 0; instancesFound < numberOfInstances; {
+	inProgress := state.countInProgressInstances(asgName, azName)
+	if inProgress >= maxUnavailable {
+		return instancesForUpdate
+	}
+	toSelect := min(want, maxUnavailable-inProgress)
+
+	for instancesFound := 0; instancesFound < toSelect; {
 		instanceId := state.getNextAvailableInstanceIdInAz(asgName, azName)
 		if len(instanceId) == 0 {
 			// All instances are updated, no more instance to update in this AZ
@@ -181,4 +181,11 @@ func getNextSetOfAvailableInstancesInAz(
 		}
 	}
 	return instancesForUpdate
+}
+
+func min(i int, j int) int {
+	if i < j {
+		return i
+	}
+	return j
 }

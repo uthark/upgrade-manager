@@ -511,12 +511,13 @@ func (r *RollingUpgradeReconciler) runRestack(ctx *context.Context, ruObj *upgra
 	if err != nil {
 		r.error(ruObj, err, "Failed to acquire in-progress instances")
 	}
-
+	disruptionBudget := getMaxUnavailable(ruObj.Spec.Strategy, totalNodes)
 	for processedInstances < totalNodes {
 		var instances []*autoscaling.Instance
-		if len(inProgress) == 0 {
+		if len(inProgress) < disruptionBudget {
+			toReplace := disruptionBudget - len(inProgress)
 			// Fetch instances to update from node selector
-			instances = nodeSelector.SelectNodesForRestack(r.ClusterState)
+			instances = nodeSelector.SelectNodesForRestack(r.ClusterState, toReplace)
 			r.info(ruObj, fmt.Sprintf("selected instances for rotation: %+v", instances))
 		} else {
 			// Prefer in progress instances over new ones
@@ -945,10 +946,7 @@ func (r *RollingUpgradeReconciler) UpdateInstances(ctx *context.Context,
 }
 
 func (r *RollingUpgradeReconciler) UpdateInstanceEager(
-	ruObj *upgrademgrv1alpha1.RollingUpgrade,
-	nodeName,
-	targetInstanceID string,
-	ch chan error) {
+	ruObj *upgrademgrv1alpha1.RollingUpgrade, nodeName, targetInstanceID string, ch chan error) {
 
 	// Set instance to standby
 	err := r.SetStandby(ruObj, targetInstanceID)
@@ -973,7 +971,6 @@ func (r *RollingUpgradeReconciler) UpdateInstanceEager(
 
 	// Drain and wait for draining node.
 	r.DrainTerminate(ruObj, nodeName, targetInstanceID, ch)
-
 }
 
 func (r *RollingUpgradeReconciler) DrainTerminate(

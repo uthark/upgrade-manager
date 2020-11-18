@@ -45,6 +45,7 @@ type ClusterState interface {
 	addInstanceState(instanceData *InstanceData)
 	updateInstanceState(instanceId, instanceState string)
 	getInstanceState(instanceId string) string
+	countInProgressInstances(asgName, azName string) int
 }
 
 type InstanceData struct {
@@ -173,4 +174,20 @@ func (c *ClusterStateImpl) getInstanceState(instanceId string) string {
 		return state.InstanceState
 	}
 	return ""
+}
+
+// countInProgressInstances returns how many instances are in-progress in AZ.
+func (c *ClusterStateImpl) countInProgressInstances(asgName, azName string) int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	count := 0
+	c.store.Range(func(key interface{}, value interface{}) bool {
+		state, _ := value.(*InstanceData)
+		if state.AsgName == asgName && (azName == "" || state.AzName == azName) && state.InstanceState == updateInProgress {
+			count++
+		}
+		return true
+	})
+	return count
 }
